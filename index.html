@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live IoT Sensor Data</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <h2>Live IoT Sensor Data (Updated Every 1 Second)</h2>
+    <canvas id="sensorChart"></canvas>
+
+    <script>
+        const apiUrl = "https://fhu8i4luc5.execute-api.ap-south-1.amazonaws.com/prod/iot-data"; // Replace with your API URL
+        let chart;
+        let labels = [];
+        let values = [];
+
+        async function fetchData() {
+            try {
+                // ✅ Append a timestamp to prevent caching
+                const response = await fetch(`${apiUrl}?nocache=${Date.now()}`);
+                const data = await response.json();
+
+                // Extract timestamps and sensor values
+                const newTimestamps = data.map(item => new Date(item.timestamp * 1000).toLocaleTimeString());
+                const newValues = data.map(item => item.value);
+
+                // ✅ Maintain last 1000 data points dynamically
+                labels = newTimestamps.slice(-1000);
+                values = newValues.slice(-1000);
+
+                updateChart(labels, values);
+            } catch (error) {
+                console.error("Error fetching data:", error);
+            }
+        }
+
+        function updateChart(labels, data) {
+            if (!chart) {
+                // Create chart if not already initialized
+                const ctx = document.getElementById("sensorChart").getContext("2d");
+                chart = new Chart(ctx, {
+                    type: "line",
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: "Sensor Value",
+                            borderColor: "blue",
+                            backgroundColor: "rgba(0, 0, 255, 0.2)",
+                            data: data,
+                            fill: true
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        animation: false, // Disable animations for real-time updates
+                        scales: {
+                            x: { title: { display: true, text: "Time" } },
+                            y: { title: { display: true, text: "Sensor Value" } }
+                        }
+                    }
+                });
+            } else {
+                // ✅ Update chart dynamically without resetting
+                chart.data.labels = labels;
+                chart.data.datasets[0].data = data;
+                chart.update();
+            }
+        }
+
+        // ✅ Fetch fresh data every **1 second** instead of 10 seconds
+        setInterval(fetchData, 1000);
+        fetchData(); // Initial fetch
+    </script>
+</body>
+</html>
